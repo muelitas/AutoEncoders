@@ -1,14 +1,21 @@
 '''/**************************************************************************
     File: main.py
     Author: Mario Esparza
-    Date: 05/19/2021
+    Created on: 05/19/2021
+    Last edit on: 05/21/2021
     
-    I am following these two tutorials:
+    I used the help of these two tutorials:
     https://blog.keras.io/building-autoencoders-in-keras.html
     https://www.datacamp.com/community/tutorials/autoencoder-keras-tutorial
     
-    Note: I am padding all audios to the same size (using the longest audio as
+    Notes:
+    - Only using 'backward' and 'bird' folders from SpeechCommands.
+    - I am padding all audios to the same size (using the longest audio as
     the size to pad to).
+    - To use tensorboard, run this {tensorboard --logdir=/tmp/autoencoder}
+    in another terminal and uncomment 'callbacks' on .fit(). To monitor,
+    access this link {http://0.0.0.0:6006}.
+    - Results can be reproduced (i.e. random seed is working)
 ***************************************************************************'''
 import gc
 import random
@@ -22,42 +29,31 @@ from sklearn.model_selection import train_test_split
 from tensorflow.keras.callbacks import TensorBoard
 from tensorflow.keras import Input, Model
 from tensorflow.keras.optimizers import RMSprop
-from utils import SC_DATASET, get_spectrograms, AutoEncoder
+from utils import SC_DATASET, AutoEncoder
 from utils import plot_spectrogram, DataGenerator
 
 SC_path = '/media/mario/GRAYUSB'
 folders_of_interest = ['backward', 'bird']
-num_of_files = 50 #number of files to grab from each folder
+num_of_files = 20 #number of files to grab from each folder
 split_dev = 0.2 #80% train, 20% validation
 split_test = 0.5 #from 20%, split 10% and 10% for validation and testing
 RANDOM_SEED = 42
 
 #Hyper Parameters
-HP = {  
-      #'cnn1_filters': [8],
-      #'cnn1_kernel': [3],
-      #'cnn1_stride': [cnstnt.CNN_STRIDE],
-      #'gru_dim': [64], #for now, same as n_mels
-      'gru_hid_dim': 64,
-      #'gru_layers': [2],
-      #'gru_dropout': [0.6],
-      #'n_class': [-1], #dynamically initialized later
+HP = {
       'mels': 128,
-      #'dropout': [0.4], #classifier's dropout
-      'e_0': 1e-4, #initial learning rate
-      #'T': [35], #Set to -1 if you want a steady LR throughout training
-      'bs': 1, #batch size
+      'bs': 2, #batch size
       'epochs': 2,
       'sr': 16000,
       'inChannel' : 1, #required for first CNN layer
-      #These two values are used to mimic torchaudio.transforms.MelSpectrogram
+      #N and HL values are used to mimic torchaudio.transforms.MelSpectrogram
       'N': 448, #length of the FFT window, originally, it was 400
 }
 HP['HL'] = HP['N'] // 2 #hop length
 
 #Set same random seed for all modules
 random.seed(RANDOM_SEED) #For random
-# tf.random.set_seed(RANDOM_SEED) #For tensorflow
+tf.random.set_seed(RANDOM_SEED) #For tensorflow
 seed(RANDOM_SEED) #For numpy
 
 #Get Dataset (paths to audios) and size of the audio with most samples 
@@ -72,36 +68,48 @@ train_paths, dev_paths = train_test_split(dataset, test_size=split_dev)
 dev_paths, test_paths = train_test_split(dev_paths, test_size=split_test)
 
 # Initialize generators
-#TODO are these generators ignoring the last batch if odd-batch?
-train_gen = DataGenerator(train_paths, HP, longest, False)
-dev_gen = DataGenerator(dev_paths, HP, longest, False)
-test_gen = DataGenerator(test_paths, HP, longest, False)
+train_gen = DataGenerator(train_paths, HP, longest, case='train', shuffle=True)
+dev_gen = DataGenerator(dev_paths, HP, longest, case='dev', shuffle=True)
+test_gen = DataGenerator(test_paths, HP, longest, case='test', shuffle=False)
 
-input_img = Input(shape = (dim1, dim2, HP['inChannel']))
+#Initialize model
+input_img = Input(shape = (HP['dim1'], HP['dim2'], HP['inChannel']))
 autoencoder = Model(input_img, AutoEncoder(input_img))
 autoencoder.compile(loss='mean_squared_error', optimizer = RMSprop())
 
 # autoencoder.summary()
 
-#New way of doing it (with DataGenerators)
-#.fit() doesn't support validation data being a generator
+#Train and validate
 autoencoder.fit(train_gen,
-                shuffle=True, #To shuffle before each epoch
+                verbose=1,
+                shuffle=False,
                 epochs = HP['epochs'],
                 batch_size = HP['bs'],
                 validation_data = dev_gen,
-                workers=2)
+                workers=1,
+                callbacks=[TensorBoard(log_dir='/tmp/autoencoder')]
+                )
 
-
-
+#Predict and plot "Predictions vs Originals"
 decoded_specs = autoencoder.predict(test_gen, batch_size = HP['bs'])
-N = 2
+N = min(5, len(decoded_specs))
 for i in range(0, N):
-    plot_spectrogram(np.squeeze(test_X[i]), HP['sr'])
-    plot_spectrogram(np.squeeze(decoded_specs[i]), HP['sr'])
-'''    
+    idx = i % 2
+    batch_idx = i // 2
+    #Plot original spectrogram
+    plot_spectrogram(
+        test_gen[batch_idx][0][idx].squeeze(), 
+        HP['sr'],
+        f"Original Spectrogram, Batch:{batch_idx}, idx:{idx}"
+    )
+    #Plot predicted spectrogram
+    plot_spectrogram(
+        np.squeeze(decoded_specs[i]), 
+        HP['sr'],
+        f"Predicted Spectrogram, i:{i}"
+    )
 
-#TODO, make sure you can reproduce results (check that random seed is working)
-
-#Collect garbage (clear space in memory)
-gc.collect()
+#Release global state and collect garbage (clear gpu memory)
+tf.keras.backend.clear_session()
+print(f"first value of gc collect: {gc.collect()}")
+print(f"second value of gc collect: {gc.collect()}")
