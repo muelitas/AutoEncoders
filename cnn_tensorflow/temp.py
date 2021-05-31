@@ -12,37 +12,30 @@ import numpy as np
 from librosa.display import specshow
 from utils import normalize_0_to_1
 
-audio_path='/media/mario/GRAYUSB/bird/50f55535_nohash_0.wav'
-audio, sr = librosa.load(audio_path, sr=16000)
+def pad_audio(audio_path, SR, longest):
+    """Pad audio with zeros to match length of {longest}"""
+    y, sr = librosa.load(audio_path, SR)
+    placeholder = np.zeros(longest)
+    placeholder[:y.size] = y
+    return placeholder
+
 n_fft = 448
 hop_length = n_fft // 2
-spec = librosa.feature.melspectrogram(y=audio, sr=sr, n_mels=128, n_fft=n_fft, hop_length=hop_length)
 
-import matplotlib.pyplot as plt
+audio_path='/media/mario/GRAYUSB/bird/50f55535_nohash_0.wav'
+y, sr = librosa.load(audio_path, sr=16000)
+if y.size < 16000:
+    y = pad_audio(audio_path, 16000, 16000)
+spec = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128, n_fft=n_fft, hop_length=hop_length)
 
-fig, ax = plt.subplots()
+audio_path='/media/mario/GRAYUSB/backward/0a2b400e_nohash_1.wav'
+y, sr = librosa.load(audio_path, sr=16000)
+if y.size < 16000:
+    y = pad_audio(audio_path, 16000, 16000)
+spec2 = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=128, n_fft=n_fft, hop_length=hop_length)
 
-S_dB = librosa.power_to_db(spec, ref=np.max)
+X = np.zeros((2, 128, 72), dtype=np.float32)
+X[0] = spec
+X[1] = spec2
+X = X.reshape(-1, X.shape[1], X.shape[2], 1)
 
-img = specshow(S_dB, x_axis='time',
-
-                         y_axis='mel', sr=sr,  ax=ax)
-
-fig.colorbar(img, ax=ax, format='%+2.0f dB')
-
-ax.set(title='Mel-frequency spectrogram')
-
-spec2 = normalize_0_to_1(spec)
-fig, ax = plt.subplots()
-
-S_dB = librosa.power_to_db(spec2, ref=np.max)
-
-img = specshow(S_dB, x_axis='time',
-
-                         y_axis='mel', sr=sr,
-
-                         fmax=8000, ax=ax)
-
-fig.colorbar(img, ax=ax, format='%+2.0f dB')
-
-ax.set(title='Mel-frequency spectrogram')

@@ -22,6 +22,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 
+Counter = 0
+
 def pad_audio(audio_path, SR, longest):
     """Pad audio with zeros to match length of {longest}"""
     y, sr = librosa.load(audio_path, SR)
@@ -179,17 +181,49 @@ class SC_DATASET():
         return spec.shape
 
 def AutoEncoder(input_img):
+    #THIS IMPLEMENTATION WORKS AS WELL
     #encoder
-    conv1 = Conv2D(32, (3, 3), activation='relu', padding='same')(input_img)
+    conv1 = Conv2D(16, (3, 3), activation='relu', padding='same')(input_img)
     pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
-    conv2 = Conv2D(64, (3, 3), activation='relu', padding='same')(pool1)
+    conv2 = Conv2D(32, (3, 3), activation='relu', padding='same')(pool1)
     pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
-    conv3 = Conv2D(128, (3, 3), activation='relu', padding='same')(pool2)
 
     #decoder
-    conv4 = Conv2D(128, (3, 3), activation='relu', padding='same')(conv3)
-    up1 = UpSampling2D((2,2))(conv4)
-    conv5 = Conv2D(64, (3, 3), activation='relu', padding='same')(up1)
-    up2 = UpSampling2D((2,2))(conv5)
+    conv3 = Conv2D(32, (3, 3), activation='relu', padding='same')(pool2)
+    up1 = UpSampling2D((2,2))(conv3)
+    conv4 = Conv2D(16, (3, 3), activation='relu', padding='same')(up1)
+    up2 = UpSampling2D((2,2))(conv4)
     decoded = Conv2D(1, (3, 3), activation='sigmoid', padding='same')(up2)
+    
+    global Counter
+    if Counter == 0:
+        print(f"input_img.shape = {input_img.shape}")
+        print(f"conv1.shape = {conv1.shape}")
+        print(f"pool1.shape = {pool1.shape}")
+        print(f"conv2.shape = {conv2.shape}")
+        print(f"pool2.shape = {pool2.shape}")
+        print(f"conv3.shape = {conv3.shape}")
+        print(f"up1.shape = {up1.shape}")
+        print(f"conv4.shape = {conv4.shape}")
+        print(f"up2.shape = {up2.shape}")
+        print(f"decoded.shape = {decoded.shape}")
+        
+        Counter+=1
+    
+    #THIS IMPLEMENTATION WORKED, BUT I THINK IT HAS A TYPO SINCE THERE SEEMS
+    #TO BE ONE MORE LAYER ON THE ENCODER.
+    # #encoder
+    # conv1 = Conv2D(16, (3, 3), activation='relu', padding='same')(input_img)
+    # pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
+    # conv2 = Conv2D(32, (3, 3), activation='relu', padding='same')(pool1)
+    # pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
+    # conv3 = Conv2D(64, (3, 3), activation='relu', padding='same')(pool2)
+
+    # #decoder
+    # conv4 = Conv2D(64, (3, 3), activation='relu', padding='same')(conv3)
+    # up1 = UpSampling2D((2,2))(conv4)
+    # conv5 = Conv2D(32, (3, 3), activation='relu', padding='same')(up1)
+    # up2 = UpSampling2D((2,2))(conv5)
+    # decoded = Conv2D(1, (3, 3), activation='sigmoid', padding='same')(up2)
+
     return decoded

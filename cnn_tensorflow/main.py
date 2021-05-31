@@ -73,7 +73,8 @@ dev_gen = DataGenerator(dev_paths, HP, longest, case='dev', shuffle=True)
 test_gen = DataGenerator(test_paths, HP, longest, case='test', shuffle=False)
 
 #Initialize model
-input_img = Input(shape = (HP['dim1'], HP['dim2'], HP['inChannel']))
+input_img = Input(shape = (HP['dim1'], HP['dim2'], HP['inChannel']), 
+                  batch_size=HP['bs'])
 autoencoder = Model(input_img, AutoEncoder(input_img))
 autoencoder.compile(loss='mean_squared_error', optimizer = RMSprop())
 
